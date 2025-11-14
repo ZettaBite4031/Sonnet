@@ -234,7 +234,7 @@ namespace Sonnet {
 
             char first_digit = s.get();
             if (!std::isdigit(static_cast<unsigned char>(first_digit))) return std::unexpected(s.make_error(ParseError::code::invalid_number, "Expected digit"));
-            if (first_digit == '0' && std::isdigit(static_cast<unsigned char>(s.peek()))) return std::unexpected(s.make_error(ParseError::code::invalid_escape, "Leading zeros disallowed"));
+            if (first_digit == '0' && std::isdigit(static_cast<unsigned char>(s.peek()))) return std::unexpected(s.make_error(ParseError::code::invalid_number, "Leading zeros disallowed"));
             while (std::isdigit(static_cast<unsigned char>(s.peek()))) s.get();
             
             if (s.peek() == '.') {
@@ -263,7 +263,7 @@ namespace Sonnet {
         expected_t<value> parse_array(Scanner& s) {
             if (!s.consume('[')) return std::unexpected(s.make_error(ParseError::code::unexpected_character, "Expected '[' to start array"));
 
-            array arr{ s.mem_res };
+            array arr{ Sonnet::allocator_type(s.mem_res) };
 
             if (auto ws = skip_ws_and_comments(s); !ws) return std::unexpected(ws.error());
             if (s.consume(']')) return value{ std::move(arr), s.mem_res };

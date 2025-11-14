@@ -59,10 +59,12 @@ int main(int argc, char** argv) {
 
     const char* examples[] = {
         "examples/json.cpp",
+        "test/tests.cpp",
         NULL
     };
     const char* example_exes[] = {
         "build/json",
+        "build/tests",
         NULL
     };
 
@@ -71,12 +73,12 @@ int main(int argc, char** argv) {
         nob_cmd_append(&cmd, compiler);
         nob_cmd_append(&cmd, "-o", example_exes[i]);
         nob_cmd_append(&cmd, examples[i]);
-        for (int i = 0; cxxflags[i]; i++) {
-            nob_cmd_append(&cmd, cxxflags[i]);
+        for (int j = 0; cxxflags[j]; j++) {
+            nob_cmd_append(&cmd, cxxflags[j]);
         }
         
-        for (size_t i = 0; i < objs.count; i++) {
-            nob_cmd_append(&cmd, objs.items[i]);
+        for (size_t j = 0; j < objs.count; j++) {
+            nob_cmd_append(&cmd, objs.items[j]);
         }
         
         if (!nob_cmd_run_sync_and_reset(&cmd)) {

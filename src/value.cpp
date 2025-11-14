@@ -12,7 +12,6 @@ namespace Sonnet {
         : m_MemRes{ res }, m_Storage{ std::monostate{} } {}
 
 
-
     value::value(bool b, std::pmr::memory_resource* res) noexcept
         : m_MemRes{ res }, m_Storage{ b } {}
 
@@ -74,9 +73,9 @@ namespace Sonnet {
     const double& value::as_number() const { return std::get<double>(m_Storage); }
     string& value::as_string() { return std::get<string>(m_Storage); }
     const string& value::as_string() const { return std::get<string>(m_Storage); }
-    array& value::as_array() { if (!is_array()) m_Storage = array{ m_MemRes }; return std::get<array>(m_Storage); }
+    array& value::as_array() { if (!is_array()) m_Storage = array{ allocator_type(m_MemRes) }; return std::get<array>(m_Storage); }
     const array& value::as_array() const { return std::get<array>(m_Storage); }
-    object& value::as_object() { if (!is_object()) m_Storage = object{ m_MemRes }; return std::get<object>(m_Storage); }
+    object& value::as_object() { if (!is_object()) m_Storage = object{ allocator_type(m_MemRes) }; return std::get<object>(m_Storage); }
     const object& value::as_object() const { return std::get<object>(m_Storage); }
 
     size_t value::size() const noexcept {

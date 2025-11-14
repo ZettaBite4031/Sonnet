@@ -20,16 +20,18 @@ namespace Sonnet {
         array,
         object,
     };
-
+    
+    
     template<class T>
     using pmr_vector = std::pmr::vector<T>;
     
     template<class Key, class T, class Compare = std::less<>> 
     using pmr_map = std::pmr::map<Key, T, Compare>;
-
+    
     using string = std::pmr::string;
-
+    
     struct value;
+    using allocator_type = std::pmr::polymorphic_allocator<value>;
 
     using array = pmr_vector<value>;
     using object = pmr_map<string, value>;
