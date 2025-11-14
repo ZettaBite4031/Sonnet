@@ -65,19 +65,88 @@
 
 #include <cstddef>
 
+/// @defgroup SonnetOptions Parsing and Writing Options
+/// @ingroup Sonnet
+/// @brief Configuration objects controlling parsing and serialization
 
 namespace Sonnet {
 
+    /// @ingroup SonnetOptions
+    /// @brief Configuration controlling JSON parsing behavior
+    ///
+    /// @details
+    /// `ParseOptions` allows adjusting how strictly Sonnet parses JSON input.
+    /// By default, the parser is strict according to RFC 8259 except for
+    /// allowing trailing commas, which is often desirable in configuration files.
+    ///
+    /// Fields: 
+    /// `allow_comments`
+    ///   - When `true`, the parser accepts both line comments (`// ...`) and
+    ///     block comments (`/* ... */`)
+    ///   - When `false` (default), encountering a comment produces a 
+    ///     `ParseError` with code `comment_not_allowed`.
+    /// `allow_trailing_commas`
+    ///   - When `true` the parser accepts trailing commas in arrays and objects,
+    ///     such as `[1,2,]` or `{"a":1,}`.
+    ///   - When `false` (default), trailing commas result in a `ParseError` with code
+    ///     `trailing_comma_not_allowed`.
+    /// `max_depth`
+    ///   - Maximum allowed nesting depth of arrays/objects.
+    ///   - A value of `0` means "no explicit depth limit"
+    ///   - If the nesting depth exceeds this limit during parsing, a
+    ///     `ParseError` with code `depth_limit_exceeded` is returned.
+    ///
+    /// Example:
+    /// @code
+    /// ParseOptions opts;
+    /// opts.allow_comments = true;
+    /// opts.max_depth = 32;
+    /// auto result = Sonnet::parse(text, opts);
+    /// @endcode
     struct ParseOptions {
-        bool allow_comments = false;
-        bool allow_trailing_commas = true;
-        // size_t max_depth = 0;
+        bool allow_comments = false; ///< Accept `//` and `/* */` comments if true
+        bool allow_trailing_commas = false; ///< Permit trailing commas in arrays/objects if true
+        size_t max_depth = 0; ///< Maximum allowed nesting depth (0 = unlimited)
     };
 
+    /// @ingroup SonnetOptions
+    /// @brief Configuration options controlling JSON serialization (dumping).
+    ///
+    /// @details
+    /// `WriteOptions` allows customizing how a `Sonnet::value` is formatted
+    /// when serialized to JSON text.
+    ///
+    /// Fields:
+    /// `pretty`: 
+    ///   - When `true`, enables human-readable formatting with newlines and
+    ///     indentation.  
+    ///   - When `false` (default), output is compact with minimal whitespace.
+    ///
+    /// `indent`:
+    ///   - Number of spaces to indent for each nesting level when `pretty`
+    ///     formatting is enabled.  
+    ///   - Ignored if `pretty == false`.
+    ///
+    /// `sort_keys`:
+    ///   - When `true`, object keys are written in sorted (lexicographic)
+    ///     order.  
+    ///   - This ensures deterministic output when object key order should not
+    ///     depend on insertion order.  
+    ///   - For containers that already maintain sorted keys (e.g. `pmr::map`),
+    ///     this may have no observable effect.
+    ///
+    /// Example:
+    /// @code
+    /// WriteOptions wo;
+    /// wo.pretty = true;
+    /// wo.indent = 4;
+    /// std::string json = Sonnet::dump(v, wo);
+    /// @endcode
     struct WriteOptions {
-        bool pretty = false;
-        size_t indent = 2;
-        bool sort_keys = false;
+        bool pretty = false;        ///< Enable pretty-printing (formatted output).
+        std::size_t indent = 2;     ///< Number of spaces per indentation level.
+        bool sort_keys = false;     ///< Sort object keys before writing if true.
     };
+
 
 } // namespace Sonnet

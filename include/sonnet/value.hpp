@@ -88,6 +88,11 @@
     Parsing, serialization, and conversion utilities are provided elsewhere within Sonnet
 */
 
+/// @defgroup Sonnet Sonnet JSON Library
+/// @brief Core types and functions for Sonnet
+
+/// @defgroup SonnetValue DOM Value
+/// @ingroup Sonnet
 
 #include <variant>
 #include <string>
@@ -99,15 +104,15 @@
 #include <concepts>
 #include <utility>
 
-
 namespace Sonnet {
+    /// @brief Enumerates the possible JSON value kinds held by Sonnet::value
     enum class kind : uint8_t {
-        null,
-        boolean,
-        number,
-        string,
-        array,
-        object,
+        null, ///< JSON null value     
+        boolean, ///< JSON boolean value (`true` or `false`)
+        number, ///< JSON number value (stored as `double`)
+        string, ///< JSON string value
+        array, ///< JSON array value
+        object, ///< JSON object value
     };
     
     
@@ -117,14 +122,25 @@ namespace Sonnet {
     template<class Key, class T, class Compare = std::less<>> 
     using pmr_map = std::pmr::map<Key, T, Compare>;
     
+    /// @ingroup SonnetValue
+    /// @brief String type used by Sonnet::value (allocator-aware)
     using string = std::pmr::string;
     
     struct value;
     using allocator_type = std::pmr::polymorphic_allocator<value>;
 
+    /// @ingroup SonnetValue
+    /// @brief Array type used by Sonnet::value (JSON arrays)
     using array = pmr_vector<value>;
+
+    /// @ingroup SonnetValue
+    /// @brief Object type used by Sonnet::value (JSON objects)
     using object = pmr_map<string, value>;
 
+    /// @ingroup SonnetValue
+    /// @brief Variant storage used internally by Sonnet::value
+    /// @details Exposed only for completness; most users interact via
+    ///          Sonnet::value member functions instead of using this alias
     using storage_t = std::variant<
         std::monostate,
         bool,
@@ -134,66 +150,391 @@ namespace Sonnet {
         object
     >;
 
+    
+    /// @ingroup SonnetValue
+    /// @brief Dynamic JSON DOM types.
+    ///
+    /// @details
+    /// `Sonnet::value` can hold any JSON value:
+    /// - null
+    /// - boolean
+    /// - number 
+    /// - string
+    /// - array
+    /// - object
+    ///
+    /// All nested allocations (string, arrays, objects) are performed using
+    /// a `std::pmr::memory_resource` associated with each `value` instance.
+    /// Container-like operations (e.g. `as_array`, `as_object`, `operator[]`)
+    /// use this allocator
     struct value {
+        // ------------------------------------------------------------
+        // Constructors / assignment / destructor
+        // ------------------------------------------------------------
+
+        /// @ingroup SonnetValue
+        /// @brief Constructs a null JSON value using the given memory resource
+        /// @param res Pointer to the memory resource used for all internal 
+        ///            allocations in this value, If omitted, the global 
+        ///            default resource is used
         explicit value(std::pmr::memory_resource* res = std::pmr::get_default_resource()) noexcept;
+
+        /// @ingroup SonnetValue
+        /// @brief Constructs a null JSON value using the given memory resource
+        ///
+        /// @param nullptr_t Unused; this overload exists to disambiguate 
+        ///        explicit creation of a null value 
+        /// @param res Memory resource used for nested allocations
         value(std::nullptr_t, std::pmr::memory_resource* res = std::pmr::get_default_resource()) noexcept;
+
+        /// @ingroup SonnetValue
+        /// @brief Constructs a boolean JSON value
+        ///
+        /// @param b Boolean value to store 
+        /// @param res Memory resource used for nested allocations (if any)
         value(bool b, std::pmr::memory_resource* res = std::pmr::get_default_resource()) noexcept;
+
+        /// @ingroup SonnetValue
+        /// @brief Constructs a numeric JSON value from a double
+        ///
+        /// @param d Numeric value to store
+        /// @param res Memory resource used for nested allocations (if any)
         value(double d, std::pmr::memory_resource* res = std::pmr::get_default_resource()) noexcept;
 
+        /// @ingroup SonnetValue
+        /// @brief Constructs a numeric JSON value from an integral type
+        ///
+        /// @tparam I Integral type (e.g. int, long, int64_t)
+        /// @param i Integer value to convert and store as a double
+        /// @param res Memory resource used for nested allocations (if any)
         template<std::integral I>
         explicit value(I i, std::pmr::memory_resource* res = std::pmr::get_default_resource()) noexcept
             : m_MemRes{ res }, m_Storage{ static_cast<double>(i) } {}
         
+        /// @ingroup SonnetValue
+        /// @brief Constructs a string JSON value from a C string
+        ///
+        /// @param s Null-terminated UTF-8 string
+        /// @param res Memory resource used for string storage
         value(const char* s, std::pmr::memory_resource* res = std::pmr::get_default_resource());
+
+        /// @ingroup SonnetValue
+        /// @brief Constructs a string JSON value from a string_view
+        ///
+        /// @param sv UTF-8 string view; characters are copied into an
+        ///           allocator-backed `Sonnet::string`
+        /// @param res Memory resource used for string storage
         value(std::string_view sv, std::pmr::memory_resource* res = std::pmr::get_default_resource());
+
+        /// @ingroup SonnetValue
+        /// @brief Constructs a string JSON from existing Sonnet::string 
+        ///
+        /// @param s String to store. May be moved from
+        /// @param res Memory resource used for string storage. If `res`
+        ///            differs from `s`'s allocator, the string will be
+        ///            copied into a new string using `res`
         value(string s, std::pmr::memory_resource* res = std::pmr::get_default_resource());
+
+        /// @ingroup SonnetValue
+        /// @brief Constructs an object JSON value from an existing array
+        ///
+        /// @param a Array to store. May be moved from
+        /// @param res Memory resource used for nested allocations in the
+        ///            array and its elements. If `res` differs from `o`'s 
+        ///            allocator, contents are cloned into a new array
         value(array a, std::pmr::memory_resource* res = std::pmr::get_default_resource());
+
+        /// @ingroup SonnetValue
+        /// @brief Constructs an object JSON value from an existing object
+        ///
+        /// @param o Object to store. May be moved from
+        /// @param res Memory resource used for nested allocations in the
+        ///            object and its children. If `res` differs from `o`'s 
+        ///            allocator, contents are cloned into a new object
         value(object o, std::pmr::memory_resource* res = std::pmr::get_default_resource());
 
+        /// @ingroup SonnetValue
+        /// @brief Copy-constructs a JSON value
+        ///
+        /// @details 
+        /// The new value adopts the alloctor of @p other. The entire JSON
+        /// tree rooted at @p other is deeply copied into the new value using
+        /// that allocator
+        ///
+        /// @param other Value to copy 
         value(const value& other);
+
+        /// @ingroup SonnetValue
+        /// @brief Move-constructs a JSON value
+        ///
+        /// @details 
+        /// The new value steals the allocator and storage from @p other.
+        /// After the move, @p other is left in a valid but unspecified state
+        /// (typically null with the same allocator)
+        ///
+        /// @param other Value to move from
         value(value&& other) noexcept;
+
+        /// @ingroup SonnetValue
+        /// @brief Copy-assigns a JSON value
+        ///
+        /// @details 
+        /// The left-hand side value adopts the allocator of @p other and its
+        /// contents are replaced with a deep copy of @p other
+        ///
+        /// @param other Value to copy from
+        /// @return Reference to this value
         value& operator=(const value& other);
+
+        /// @ingroup SonnetValue
+        /// @brief Move-assigns a JSON value
+        /// 
+        /// @details
+        /// The left-hand side value's previous contents are destroyed, and
+        /// it takes ownership of the allocator and storage of @p other
+        ///
+        /// @param other Value to move from
+        /// @return Reference to this value
         value& operator=(value&& other) noexcept;
 
+        // ------------------------------------------------------------
+        // Introspection
+        // ------------------------------------------------------------
+
+        /// @ingroup SonnetValue
+        /// @brief Returns the kind of JSON value currently stored. 
+        /// 
+        /// @return The `Sonnet::kind` enum representing the active type
         [[nodiscard]] kind type() const noexcept;
 
+        /// @ingroup SonnetValue
+        /// @brief Checks whether the value holds JSON null
         [[nodiscard]] bool is_null()   const noexcept { return type() == kind::null;    }
+
+        /// @ingroup SonnetValue
+        /// @brief Checks whether the value holds a boolean
         [[nodiscard]] bool is_bool()   const noexcept { return type() == kind::boolean; }
+
+        /// @ingroup SonnetValue
+        /// @brief Checks whether the value holds a number
         [[nodiscard]] bool is_number() const noexcept { return type() == kind::number;  }
+
+        /// @ingroup SonnetValue
+        /// @brief Checks whether the value holds a string
         [[nodiscard]] bool is_string() const noexcept { return type() == kind::string;  }
+
+        /// @ingroup SonnetValue
+        /// @brief Checks whether the value holds an array
         [[nodiscard]] bool is_array()  const noexcept { return type() == kind::array;   }
+
+        /// @ingroup SonnetValue
+        /// @brief Checks whether the value holds an object
         [[nodiscard]] bool is_object() const noexcept { return type() == kind::object;  }
         
+        // ------------------------------------------------------------
+        // Scalar accessors
+        // ------------------------------------------------------------
+
+        /// @ingroup SonnetValue
+        /// @brief Returns a reference to the stored boolean value 
+        /// @pre `is_bool()` must be true. Calling this when the active kind
+        ///      is not `kind::boolean` is undefined behavior
         [[nodiscard]] bool&       as_bool();
+
+        /// @ingroup SonnetValue
+        /// @brief Returns a const reference to the stored boolean value 
+        /// @pre `is_bool()` must be true.
         [[nodiscard]] const bool& as_bool() const;
 
+        /// @ingroup SonnetValue
+        /// @brief Returns a reference to the stored number value 
+        /// @pre `is_number()` must be true. Calling this when the active kind
+        ///      is not `kind::number` is undefined behavior
         [[nodiscard]] double&       as_number();
+        
+        /// @ingroup SonnetValue
+        /// @brief Returns a const reference to the stored number value 
+        /// @pre `is_number()` must be true.
         [[nodiscard]] const double& as_number() const;
 
+        /// @ingroup SonnetValue
+        /// @brief Returns a reference to the stored string value 
+        /// @pre `is_string()` must be true. Calling this when the active kind
+        ///      is not `kind::string` is undefined behavior
         [[nodiscard]] string&       as_string();
-        [[nodiscard]] const string& as_string() const;
 
+        /// @ingroup SonnetValue
+        /// @brief Returns a const reference to the stored string value
+        /// @pre `is_string()` must be true.
+        [[nodiscard]] const string& as_string() const;
+    
+        // ------------------------------------------------------------
+        // Container accessors
+        // ------------------------------------------------------------    
+
+        /// @ingroup SonnetValue
+        /// @brief Returns a reference to the stored array value 
+        /// @details
+        /// If `is_array()` is true, returns the existing array.
+        /// Otherwise, the current contents are discarded and replaced with
+        /// an empty array allocated from `resource()`, and that array is returned
+        /// @pre `is_array()` must be true. Calling this when the active kind
+        ///      is not `kind::array` is undefined behavior
         [[nodiscard]] array&       as_array();
+
+        /// @ingroup SonnetValue
+        /// @brief Returns a const reference to the stored array value 
+        /// @pre `is_array()` must be true.
         [[nodiscard]] const array& as_array() const;
 
+        /// @ingroup SonnetValue
+        /// @brief Returns a reference to the stored object value
+        /// @details
+        /// If `is_object()` is true, returns the existing object.
+        /// Otherwise, the current contents are discarded and replaced with
+        /// an empty object allocated from `resource()`, and that object is returned
+        /// @pre `is_object()` must be true. Calling this when the active kind
+        ///      is not `kind::object` is undefined behavior
         [[nodiscard]] object&       as_object();
+
+        /// @ingroup SonnetValue
+        /// @brief Returns a const reference to the stored object value
+        /// @pre `is_object()` must be true.
         [[nodiscard]] const object& as_object() const;
 
+        /// @ingroup SonnetValue
+        /// @brief Returns true if the value is an array or object with no elements or key/value pairs
+        /// @details For non-container kinds, this function returns false
+        [[nodiscard]] bool empty() const;
+
+        /// @ingroup SonnetValue
+        /// @brief Returns the size of the array or object
+        /// @details
+        /// For arrays, this is the number of elements
+        /// For objects, this is the number of key/value pairs
+        /// For non-container types, returns 0
         [[nodiscard]] size_t size() const noexcept;
 
+        /// @ingroup SonnetValue
+        /// @brief Removes all elements from the array or object
+        /// @details
+        /// For arrays and objects, this clears their contents
+        /// For non-container kinds, this function has no effect
+        void clear();
+
+        // ------------------------------------------------------------
+        // Object indexing
+        // ------------------------------------------------------------
+
+        /// @ingroup SonnetValue
+        /// @brief Accesses or creates an array element by index, growing array as needed
+        /// @details
+        /// If the current value is **not** an array, it is implicitly converted
+        /// into an empty array (`[]`) before access.
+        /// If @p idx is greater than or equal to the current array size,
+        /// the array is resized to `idx + 1`. All newly created elements are
+        /// default-constructed JSON values (`null`).
+        /// Returns a reference to the element at @p idx
+        ///
+        /// @param idx Zero based index into the array
+        /// @return  Reference to the value at index @p idx
         value& operator[](size_t idx);
+
+        /// @ingroup SonnetValue
+        /// @brief Accesses an array element by index (const overload)
+        ///
+        /// @details
+        /// Unlike the non-const overload, this function does **not**
+        /// perform type converion or resizing. It assumes that:
+        ///  - The current value is already an array
+        ///  - The index @p idx is within array bounds
+        /// If either condition is violated, resulting behavior is undefined
+        /// @param idx Zero based into the array
+        /// @return Const reference to the value at index @p idx
         const value& operator[](size_t idx) const;
 
+        /// @ingroup SonnetValue
+        /// @brief Accesses or creates an object member by key
+        ///
+        /// @details
+        /// If the value is not an object, it is converted to an empty object
+        /// If @p key does not exist, a new entry is inserted with a `null` value
+        /// Returns a reference to the value associated with @p key
+        ///
+        /// @param key Object key to access
+        /// @return Reference to the value mapped to @p key
         value& operator[](std::string_view key);
 
+        /// @ingroup SonnetValue
+        /// @brief Finds a member with the given key in the object
+        ///
+        /// @details
+        /// If the value is not an object, returns nullptr
+        /// If the key exists, return a pointer to the corresponding value
+        /// Otherwise, returns nullptr
+        ///
+        /// @param key Object key to look up 
+        /// @return Pointer to the value mapped to @p key or nullptr
         const value* find(std::string_view key) const;
+
+        /// @ingroup SonnetValue
+        /// @brief Returns a const reference to the value associated with @p key
+        ///
+        /// @details
+        /// If the value is not an object or @p key does not exist
+        /// this function throws `std::out_of_range` 
+        ///
+        /// @param key Object key to access
+        /// @return Const reference to the value mapped by @p
+        /// @throws std::out_of_range If the key does not exist or the value is not an object
         const value& at(std::string_view key) const;
 
+        /// @ingroup SonnetValue
+        /// @brief Defaulted three-way comparison for structural ordering.
+        /// 
+        /// @details 
+        /// Values are compared first by kind, then by their stored contents.
+        /// For arrays and objects, comparison is structural (lexicographical for arrays, key/value-wise for objects)
         friend auto operator<=>(const value& lhs, const value& rhs) = default;
-
+        
+        /// @ingroup SonnetValue
+        /// @brief Returns the memory resource associated with this value 
+        ///
+        /// @details 
+        /// All nested allocations (strings, arrays, objects) within this
+        /// value and its descendents use this resource
+        ///         
+        /// @return Pointer to the memory resource 
         [[nodiscard]] std::pmr::memory_resource* resource() const noexcept { return m_MemRes; }
 
+        /// @ingroup SonnetValue
+        /// @brief Returns a const reference to the underlying variant storage
+        ///
+        /// @details
+        /// This function provides direct access to the internal `storage_t` 
+        /// variant that backs this `value`. The returned reference exposes the
+        /// raw representation:
+        ///         std::variant<std::monostate, bool, double, string, array, object>
+        /// Typical users should prefer higher-level accessors such as the `as_*()` functions, 
+        /// which provide safer, JSON-semantic behavior.
+        /// @return Const reference to the internal storage variant
         [[nodiscard]] const storage_t& storage() const noexcept { return m_Storage; }
+        
+        /// @ingroup SonnetValue
+        /// @brief Returns a mutable reference to the underlying variant storage
+        ///
+        /// @details
+        /// This function exposes the raw `storage_t` variant that holds the
+        /// current JSON value in its unwrapped, low-level form.
+        ///
+        /// Because this provides unrestricted mutable access, it bypasses all
+        /// type-safety guarantees and invariants normally enforced by the
+        /// `value` API. Modifying the variant directly can invalidate
+        /// assumptions made by high-level functions such as `as_array()`,
+        /// `operator[]`, or type predicates (`is_array()`, `is_object()`, etc.).
+        ///
+        /// **Use with extreme caution.**
+        /// @return Mutable reference to the internal storage variant
         [[nodiscard]] storage_t& storage() noexcept { return m_Storage; }
 
         
