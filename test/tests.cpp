@@ -362,3 +362,27 @@ TEST_CASE("Value Uses Provided memory_resource") {
 
     REQUIRE(res.allocs > 0);
 }
+
+TEST_CASE("as_array Converts Null to Empty Array") {
+    Sonnet::value v;
+    REQUIRE(v.is_null());
+    auto& arr = v.as_array();
+    REQUIRE(v.is_array());
+    REQUIRE(arr.empty());    
+}
+
+TEST_CASE("operator[] String Inserts Null When Missing") {
+    Sonnet::value v;
+    v["foo"];
+    REQUIRE(v.is_object());
+    REQUIRE(v["foo"].is_null());
+}
+
+TEST_CASE("operator[] Index Grows and Fills With Null") {
+    Sonnet::value v;
+    v[3] = 42.0;
+    auto& arr = v.as_array();
+    REQUIRE(arr.size() == 4);
+    REQUIRE(arr[0].is_null());
+    REQUIRE(arr[3].as_number() == Approx(42.0));
+}
