@@ -7,9 +7,9 @@
 #endif
 #if SONNET_PLATFORM_WINDOWS
 #if defined(SONNET_BUILD_SHARED)
-#define SONNET_API __desclspec(dllexport)
+#define SONNET_API __declspec(dllexport)
 #elif definedS(SONNET_SHARED)
-#define SONNET_API __desclspec(dllimport)
+#define SONNET_API __declspec(dllimport)
 #endif
 #else
 #if defined(SONNET_BUILD_SHARED) || defined(SONNET_SHARED)
