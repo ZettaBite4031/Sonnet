@@ -124,6 +124,10 @@ if(SONNET_INSTALL)
     include(GNUInstallDirs)
     include(CMakePackageConfigHelpers)
 
+    file(MAKE_DIRECTORY ${CMAKE_INSTALL_INCLUDEDIR}/include/sonnet)
+    file(MAKE_DIRECTORY ${CMAKE_INSTALL_LIBDIR}/lib/)
+    file(MAKE_DIRECTORY ${CMAKE_INSTALL_LIBDIR}/bin/)
+
     # ---- Install headers ----
     install(
         DIRECTORY include/sonnet
