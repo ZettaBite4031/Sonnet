@@ -11,7 +11,7 @@ add_executable(sonnet_tests
 target_link_libraries(sonnet_tests
     PRIVATE
         Sonnet::sonnet
-        # Catch2::Catch2WithMain or similar
+        Catch2::Catch2WithMain
 )
 
 add_test(NAME sonnet_tests COMMAND sonnet_tests)
