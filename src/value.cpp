@@ -132,7 +132,7 @@ namespace Sonnet {
         }
         case 4: {
             const auto& arr = std::get<array>(s);
-            array copy{ res };
+            array copy(allocator_type{ res });
             copy.reserve(arr.size());
             for (const auto& v : arr) copy.emplace_back(v);
             return copy;

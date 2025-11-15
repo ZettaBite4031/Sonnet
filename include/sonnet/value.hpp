@@ -103,6 +103,7 @@
 #include <cstddef>
 #include <concepts>
 #include <utility>
+#include "sonnet/config.hpp"
 
 namespace Sonnet {
     /// @brief Enumerates the possible JSON value kinds held by Sonnet::value
@@ -177,7 +178,7 @@ namespace Sonnet {
         /// @param res Pointer to the memory resource used for all internal 
         ///            allocations in this value, If omitted, the global 
         ///            default resource is used
-        explicit value(std::pmr::memory_resource* res = std::pmr::get_default_resource()) noexcept;
+        SONNET_API explicit value(std::pmr::memory_resource* res = std::pmr::get_default_resource()) noexcept;
 
         /// @ingroup SonnetValue
         /// @brief Constructs a null JSON value using the given memory resource
@@ -185,21 +186,21 @@ namespace Sonnet {
         /// @param nullptr_t Unused; this overload exists to disambiguate 
         ///        explicit creation of a null value 
         /// @param res Memory resource used for nested allocations
-        value(std::nullptr_t, std::pmr::memory_resource* res = std::pmr::get_default_resource()) noexcept;
+        SONNET_API value(std::nullptr_t, std::pmr::memory_resource* res = std::pmr::get_default_resource()) noexcept;
 
         /// @ingroup SonnetValue
         /// @brief Constructs a boolean JSON value
         ///
         /// @param b Boolean value to store 
         /// @param res Memory resource used for nested allocations (if any)
-        value(bool b, std::pmr::memory_resource* res = std::pmr::get_default_resource()) noexcept;
+        SONNET_API value(bool b, std::pmr::memory_resource* res = std::pmr::get_default_resource()) noexcept;
 
         /// @ingroup SonnetValue
         /// @brief Constructs a numeric JSON value from a double
         ///
         /// @param d Numeric value to store
         /// @param res Memory resource used for nested allocations (if any)
-        value(double d, std::pmr::memory_resource* res = std::pmr::get_default_resource()) noexcept;
+        SONNET_API value(double d, std::pmr::memory_resource* res = std::pmr::get_default_resource()) noexcept;
 
         /// @ingroup SonnetValue
         /// @brief Constructs a numeric JSON value from an integral type
@@ -208,7 +209,7 @@ namespace Sonnet {
         /// @param i Integer value to convert and store as a double
         /// @param res Memory resource used for nested allocations (if any)
         template<std::integral I>
-        explicit value(I i, std::pmr::memory_resource* res = std::pmr::get_default_resource()) noexcept
+        SONNET_API explicit value(I i, std::pmr::memory_resource* res = std::pmr::get_default_resource()) noexcept
             : m_MemRes{ res }, m_Storage{ static_cast<double>(i) } {}
         
         /// @ingroup SonnetValue
@@ -216,7 +217,7 @@ namespace Sonnet {
         ///
         /// @param s Null-terminated UTF-8 string
         /// @param res Memory resource used for string storage
-        value(const char* s, std::pmr::memory_resource* res = std::pmr::get_default_resource());
+        SONNET_API value(const char* s, std::pmr::memory_resource* res = std::pmr::get_default_resource());
 
         /// @ingroup SonnetValue
         /// @brief Constructs a string JSON value from a string_view
@@ -224,7 +225,7 @@ namespace Sonnet {
         /// @param sv UTF-8 string view; characters are copied into an
         ///           allocator-backed `Sonnet::string`
         /// @param res Memory resource used for string storage
-        value(std::string_view sv, std::pmr::memory_resource* res = std::pmr::get_default_resource());
+        SONNET_API value(std::string_view sv, std::pmr::memory_resource* res = std::pmr::get_default_resource());
 
         /// @ingroup SonnetValue
         /// @brief Constructs a string JSON from existing Sonnet::string 
@@ -233,7 +234,7 @@ namespace Sonnet {
         /// @param res Memory resource used for string storage. If `res`
         ///            differs from `s`'s allocator, the string will be
         ///            copied into a new string using `res`
-        value(string s, std::pmr::memory_resource* res = std::pmr::get_default_resource());
+        SONNET_API value(string s, std::pmr::memory_resource* res = std::pmr::get_default_resource());
 
         /// @ingroup SonnetValue
         /// @brief Constructs an object JSON value from an existing array
@@ -242,7 +243,7 @@ namespace Sonnet {
         /// @param res Memory resource used for nested allocations in the
         ///            array and its elements. If `res` differs from `o`'s 
         ///            allocator, contents are cloned into a new array
-        value(array a, std::pmr::memory_resource* res = std::pmr::get_default_resource());
+        SONNET_API value(array a, std::pmr::memory_resource* res = std::pmr::get_default_resource());
 
         /// @ingroup SonnetValue
         /// @brief Constructs an object JSON value from an existing object
@@ -251,7 +252,7 @@ namespace Sonnet {
         /// @param res Memory resource used for nested allocations in the
         ///            object and its children. If `res` differs from `o`'s 
         ///            allocator, contents are cloned into a new object
-        value(object o, std::pmr::memory_resource* res = std::pmr::get_default_resource());
+        SONNET_API value(object o, std::pmr::memory_resource* res = std::pmr::get_default_resource());
 
         /// @ingroup SonnetValue
         /// @brief Copy-constructs a JSON value
@@ -262,7 +263,7 @@ namespace Sonnet {
         /// that allocator
         ///
         /// @param other Value to copy 
-        value(const value& other);
+        SONNET_API value(const value& other);
 
         /// @ingroup SonnetValue
         /// @brief Move-constructs a JSON value
@@ -273,7 +274,7 @@ namespace Sonnet {
         /// (typically null with the same allocator)
         ///
         /// @param other Value to move from
-        value(value&& other) noexcept;
+        SONNET_API value(value&& other) noexcept;
 
         /// @ingroup SonnetValue
         /// @brief Copy-assigns a JSON value
@@ -284,7 +285,7 @@ namespace Sonnet {
         ///
         /// @param other Value to copy from
         /// @return Reference to this value
-        value& operator=(const value& other);
+        SONNET_API value& operator=(const value& other);
 
         /// @ingroup SonnetValue
         /// @brief Move-assigns a JSON value
@@ -295,7 +296,7 @@ namespace Sonnet {
         ///
         /// @param other Value to move from
         /// @return Reference to this value
-        value& operator=(value&& other) noexcept;
+        SONNET_API value& operator=(value&& other) noexcept;
 
         // ------------------------------------------------------------
         // Introspection
@@ -305,31 +306,31 @@ namespace Sonnet {
         /// @brief Returns the kind of JSON value currently stored. 
         /// 
         /// @return The `Sonnet::kind` enum representing the active type
-        [[nodiscard]] kind type() const noexcept;
+        SONNET_API [[nodiscard]] kind type() const noexcept;
 
         /// @ingroup SonnetValue
         /// @brief Checks whether the value holds JSON null
-        [[nodiscard]] bool is_null()   const noexcept { return type() == kind::null;    }
+        SONNET_API [[nodiscard]] bool is_null()   const noexcept { return type() == kind::null;    }
 
         /// @ingroup SonnetValue
         /// @brief Checks whether the value holds a boolean
-        [[nodiscard]] bool is_bool()   const noexcept { return type() == kind::boolean; }
+        SONNET_API [[nodiscard]] bool is_bool()   const noexcept { return type() == kind::boolean; }
 
         /// @ingroup SonnetValue
         /// @brief Checks whether the value holds a number
-        [[nodiscard]] bool is_number() const noexcept { return type() == kind::number;  }
+        SONNET_API [[nodiscard]] bool is_number() const noexcept { return type() == kind::number;  }
 
         /// @ingroup SonnetValue
         /// @brief Checks whether the value holds a string
-        [[nodiscard]] bool is_string() const noexcept { return type() == kind::string;  }
+        SONNET_API [[nodiscard]] bool is_string() const noexcept { return type() == kind::string;  }
 
         /// @ingroup SonnetValue
         /// @brief Checks whether the value holds an array
-        [[nodiscard]] bool is_array()  const noexcept { return type() == kind::array;   }
+        SONNET_API [[nodiscard]] bool is_array()  const noexcept { return type() == kind::array;   }
 
         /// @ingroup SonnetValue
         /// @brief Checks whether the value holds an object
-        [[nodiscard]] bool is_object() const noexcept { return type() == kind::object;  }
+        SONNET_API [[nodiscard]] bool is_object() const noexcept { return type() == kind::object;  }
         
         // ------------------------------------------------------------
         // Scalar accessors
@@ -339,34 +340,34 @@ namespace Sonnet {
         /// @brief Returns a reference to the stored boolean value 
         /// @pre `is_bool()` must be true. Calling this when the active kind
         ///      is not `kind::boolean` is undefined behavior
-        [[nodiscard]] bool&       as_bool();
+        SONNET_API [[nodiscard]] bool&       as_bool();
 
         /// @ingroup SonnetValue
         /// @brief Returns a const reference to the stored boolean value 
         /// @pre `is_bool()` must be true.
-        [[nodiscard]] const bool& as_bool() const;
+        SONNET_API [[nodiscard]] const bool& as_bool() const;
 
         /// @ingroup SonnetValue
         /// @brief Returns a reference to the stored number value 
         /// @pre `is_number()` must be true. Calling this when the active kind
         ///      is not `kind::number` is undefined behavior
-        [[nodiscard]] double&       as_number();
+        SONNET_API [[nodiscard]] double&       as_number();
         
         /// @ingroup SonnetValue
         /// @brief Returns a const reference to the stored number value 
         /// @pre `is_number()` must be true.
-        [[nodiscard]] const double& as_number() const;
+        SONNET_API [[nodiscard]] const double& as_number() const;
 
         /// @ingroup SonnetValue
         /// @brief Returns a reference to the stored string value 
         /// @pre `is_string()` must be true. Calling this when the active kind
         ///      is not `kind::string` is undefined behavior
-        [[nodiscard]] string&       as_string();
+        SONNET_API [[nodiscard]] string&       as_string();
 
         /// @ingroup SonnetValue
         /// @brief Returns a const reference to the stored string value
         /// @pre `is_string()` must be true.
-        [[nodiscard]] const string& as_string() const;
+        SONNET_API [[nodiscard]] const string& as_string() const;
     
         // ------------------------------------------------------------
         // Container accessors
@@ -380,12 +381,12 @@ namespace Sonnet {
         /// an empty array allocated from `resource()`, and that array is returned
         /// @pre `is_array()` must be true. Calling this when the active kind
         ///      is not `kind::array` is undefined behavior
-        [[nodiscard]] array&       as_array();
+        SONNET_API [[nodiscard]] array&       as_array();
 
         /// @ingroup SonnetValue
         /// @brief Returns a const reference to the stored array value 
         /// @pre `is_array()` must be true.
-        [[nodiscard]] const array& as_array() const;
+        SONNET_API [[nodiscard]] const array& as_array() const;
 
         /// @ingroup SonnetValue
         /// @brief Returns a reference to the stored object value
@@ -395,17 +396,12 @@ namespace Sonnet {
         /// an empty object allocated from `resource()`, and that object is returned
         /// @pre `is_object()` must be true. Calling this when the active kind
         ///      is not `kind::object` is undefined behavior
-        [[nodiscard]] object&       as_object();
+        SONNET_API [[nodiscard]] object&       as_object();
 
         /// @ingroup SonnetValue
         /// @brief Returns a const reference to the stored object value
         /// @pre `is_object()` must be true.
-        [[nodiscard]] const object& as_object() const;
-
-        /// @ingroup SonnetValue
-        /// @brief Returns true if the value is an array or object with no elements or key/value pairs
-        /// @details For non-container kinds, this function returns false
-        [[nodiscard]] bool empty() const;
+        SONNET_API [[nodiscard]] const object& as_object() const;
 
         /// @ingroup SonnetValue
         /// @brief Returns the size of the array or object
@@ -413,14 +409,7 @@ namespace Sonnet {
         /// For arrays, this is the number of elements
         /// For objects, this is the number of key/value pairs
         /// For non-container types, returns 0
-        [[nodiscard]] size_t size() const noexcept;
-
-        /// @ingroup SonnetValue
-        /// @brief Removes all elements from the array or object
-        /// @details
-        /// For arrays and objects, this clears their contents
-        /// For non-container kinds, this function has no effect
-        void clear();
+        SONNET_API [[nodiscard]] size_t size() const noexcept;
 
         // ------------------------------------------------------------
         // Object indexing
@@ -438,7 +427,7 @@ namespace Sonnet {
         ///
         /// @param idx Zero based index into the array
         /// @return  Reference to the value at index @p idx
-        value& operator[](size_t idx);
+        SONNET_API value& operator[](size_t idx);
 
         /// @ingroup SonnetValue
         /// @brief Accesses an array element by index (const overload)
@@ -451,7 +440,7 @@ namespace Sonnet {
         /// If either condition is violated, resulting behavior is undefined
         /// @param idx Zero based into the array
         /// @return Const reference to the value at index @p idx
-        const value& operator[](size_t idx) const;
+        SONNET_API const value& operator[](size_t idx) const;
 
         /// @ingroup SonnetValue
         /// @brief Accesses or creates an object member by key
@@ -463,7 +452,7 @@ namespace Sonnet {
         ///
         /// @param key Object key to access
         /// @return Reference to the value mapped to @p key
-        value& operator[](std::string_view key);
+        SONNET_API value& operator[](std::string_view key);
 
         /// @ingroup SonnetValue
         /// @brief Finds a member with the given key in the object
@@ -475,7 +464,7 @@ namespace Sonnet {
         ///
         /// @param key Object key to look up 
         /// @return Pointer to the value mapped to @p key or nullptr
-        const value* find(std::string_view key) const;
+        SONNET_API const value* find(std::string_view key) const;
 
         /// @ingroup SonnetValue
         /// @brief Returns a const reference to the value associated with @p key
@@ -487,7 +476,7 @@ namespace Sonnet {
         /// @param key Object key to access
         /// @return Const reference to the value mapped by @p
         /// @throws std::out_of_range If the key does not exist or the value is not an object
-        const value& at(std::string_view key) const;
+        SONNET_API const value& at(std::string_view key) const;
 
         /// @ingroup SonnetValue
         /// @brief Defaulted three-way comparison for structural ordering.
@@ -495,7 +484,7 @@ namespace Sonnet {
         /// @details 
         /// Values are compared first by kind, then by their stored contents.
         /// For arrays and objects, comparison is structural (lexicographical for arrays, key/value-wise for objects)
-        friend auto operator<=>(const value& lhs, const value& rhs) = default;
+        SONNET_API friend auto operator<=>(const value& lhs, const value& rhs) = default;
         
         /// @ingroup SonnetValue
         /// @brief Returns the memory resource associated with this value 
@@ -505,7 +494,7 @@ namespace Sonnet {
         /// value and its descendents use this resource
         ///         
         /// @return Pointer to the memory resource 
-        [[nodiscard]] std::pmr::memory_resource* resource() const noexcept { return m_MemRes; }
+        [[nodiscard]] SONNET_API std::pmr::memory_resource* resource() const noexcept { return m_MemRes; }
 
         /// @ingroup SonnetValue
         /// @brief Returns a const reference to the underlying variant storage
@@ -518,7 +507,7 @@ namespace Sonnet {
         /// Typical users should prefer higher-level accessors such as the `as_*()` functions, 
         /// which provide safer, JSON-semantic behavior.
         /// @return Const reference to the internal storage variant
-        [[nodiscard]] const storage_t& storage() const noexcept { return m_Storage; }
+        [[nodiscard]] SONNET_API const storage_t& storage() const noexcept { return m_Storage; }
         
         /// @ingroup SonnetValue
         /// @brief Returns a mutable reference to the underlying variant storage
@@ -535,7 +524,7 @@ namespace Sonnet {
         ///
         /// **Use with extreme caution.**
         /// @return Mutable reference to the internal storage variant
-        [[nodiscard]] storage_t& storage() noexcept { return m_Storage; }
+        [[nodiscard]] SONNET_API storage_t& storage() noexcept { return m_Storage; }
 
         
     private:

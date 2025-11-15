@@ -91,6 +91,7 @@
 #include <concepts>
 
 #include "sonnet/value.hpp"
+#include "sonnet/config.hpp"
 
 /// @defgroup SonnetConvert Type Conversion
 /// @ingroup Sonnet

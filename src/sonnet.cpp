@@ -47,10 +47,12 @@ namespace Sonnet {
             size_t idx = 0;
             size_t line = 1;
             size_t column = 1;
+            size_t depth = 0;
+            size_t max_depth = 0;
             std::pmr::memory_resource* mem_res;
 
             Scanner(std::string_view t, const ParseOptions& o, std::pmr::memory_resource* r)
-                : text{ t }, opts{ o }, mem_res{ r } {}
+                : text{ t }, opts{ o }, max_depth{ o.max_depth }, mem_res{ r } {}
 
             [[nodiscard]] bool eof() const noexcept { return idx >= text.size(); }
             [[nodiscard]] char peek() const noexcept { return eof() ? '\0' : text[idx]; }
@@ -79,6 +81,32 @@ namespace Sonnet {
             }
         };
 
+        struct DepthGuard {
+            Scanner& s;
+            bool active = false;
+
+            DepthGuard(Scanner& sc) : s(sc) {
+                if (s.max_depth != 0) {
+                    if (s.depth + 1 > s.max_depth) active = false;
+                    else {
+                        s.depth++;
+                        active = true;
+                    }
+                } else {
+                    s.depth++;
+                    active = true;
+                }
+            }
+
+            ~DepthGuard() {
+                if (active) s.depth--;
+            }
+
+            bool ok() const {
+                return active;
+            }
+        };
+
         expected_t<value> parse_value(Scanner& s);
         expected_t<value> parse_object(Scanner& s);
         expected_t<value> parse_array(Scanner& s);
@@ -86,6 +114,110 @@ namespace Sonnet {
         expected_t<string> parse_string(Scanner& s);
         expected_void parse_literal(Scanner& s, std::string_view literal, ParseError::code code, std::string_view fail_msg);
         expected_void skip_ws_and_comments(Scanner& s);
+        
+        inline bool is_valid_utf8(std::string_view s, size_t& error_idx) {
+            const unsigned char* data = reinterpret_cast<const unsigned char*>(s.data());
+            size_t i = 0; 
+            size_t n = s.size();
+
+            auto fail = [&](size_t idx) { error_idx = idx; return false; };
+
+            while (i < n) {
+                unsigned char c = data[i];
+
+                if (c <= 0x7F) {
+                    i++;
+                    continue;
+                }
+
+                if (c >= 0xC2 && c <= 0xDF) {
+                    if (i + 1 >= n) return fail(i);
+                    unsigned char c1 = data[i + 1];
+                    if ((c1 & 0xC0) != 0x80) return fail(i);
+                    i += 2;
+                    continue;
+                }
+
+                if (c >= 0xE1 && c <= 0xEC) {
+                    if (i + 2 >= n) return fail(i);
+                    unsigned char c1 = data[i + 1];
+                    unsigned char c2 = data[i + 2];
+                    if ((c1 & 0xC0) != 0x80) return fail(i);
+                    if ((c2 & 0xC0) != 0x80) return fail(i);
+                    i += 3;
+                    continue;
+                }
+
+                if (c == 0xE0) {
+                    if (i + 2 >= n) return fail(i);
+                    unsigned char c1 = data[i + 1];
+                    unsigned char c2 = data[i + 2];
+                    if (c1 < 0xA0 || c1 > 0xBF) return fail(i);
+                    if ((c2 & 0xC0) != 0x80) return fail(i);
+                    i += 3;
+                    continue;
+                }
+
+                if (c == 0xED) {
+                    if (i + 2 >= n) return fail(i);
+                    unsigned char c1 = data[i + 1];
+                    unsigned char c2 = data[i + 2];
+                    if (c1 < 0x80 || c1 > 0x9F) return fail(i);
+                    if ((c2 & 0xC0) != 0x80) return fail(i);
+                    i += 3;
+                    continue;
+                }
+
+                if (c >= 0xEE && c <= 0xEF) {
+                    if (i + 2 >= n) return fail(i);
+                    unsigned char c1 = data[i + 1];
+                    unsigned char c2 = data[i + 2];
+                    if ((c1 & 0xC0) != 0x80) return fail(i);
+                    if ((c2 & 0xC0) != 0x80) return fail(i);
+                    i += 3;
+                    continue;
+                }
+
+                if (c == 0xF0) {
+                    if (i + 3 >= n) return fail(i);
+                    unsigned char c1 = data[i + 1];
+                    unsigned char c2 = data[i + 2];
+                    unsigned char c3 = data[i + 3];
+                    if (c1 < 0x90 || c1 > 0xBF) return fail(i);
+                    if ((c2 & 0xC0) != 0x80) return fail(i);
+                    if ((c3 & 0xC0) != 0x80) return fail(i);
+                    i += 4;
+                    continue;
+                }
+
+                if (c >= 0xF1 && c <= 0xF3) {
+                    if (i + 3 >= n) return fail(i);
+                    unsigned char c1 = data[i + 1];
+                    unsigned char c2 = data[i + 2];
+                    unsigned char c3 = data[i + 3];
+                    if ((c1 & 0xC0) != 0x80) return fail(i);
+                    if ((c2 & 0xC0) != 0x80) return fail(i);
+                    if ((c3 & 0xC0) != 0x80) return fail(i);
+                    i += 4;
+                    continue;
+                }
+
+                if (c == 0xF4) {
+                    if (i + 3 >= n) return fail(i);
+                    unsigned char c1 = data[i + 1];
+                    unsigned char c2 = data[i + 2];
+                    unsigned char c3 = data[i + 3];
+                    if (c1 < 0x80 || c1 > 0x8F) return fail(i);
+                    if ((c2 & 0xC0) != 0x80) return fail(i);
+                    if ((c3 & 0xC0) != 0x80) return fail(i);
+                    i += 4;
+                    continue;
+                }
+
+                return fail(i);
+            }
+            return true;
+        }
 
         void append_utf8(uint32_t cp, string& out) {
             if (cp <= 0x7F) {
@@ -160,12 +292,17 @@ namespace Sonnet {
 
         expected_t<string> parse_string(Scanner& s) {
             if (!s.consume('"')) return std::unexpected(s.make_error(ParseError::code::invalid_string, "Expected '\"' to start a string"));
-
+            
             string out{ s.mem_res };
 
             while (!s.eof()) {
                 char c = s.get();
-                if (c == '"') return out;
+                if (c == '"') { 
+                    size_t bad_idx = 0;
+                    if (!detail::is_valid_utf8(std::string_view(out.data(), out.size()), bad_idx)) 
+                        return std::unexpected(s.make_error(ParseError::code::invalid_string, "Invalid UTF-8 sequence in string")); 
+                    return out; 
+                }
                 if (static_cast<unsigned char>(c) < 0x20) return std::unexpected(s.make_error(ParseError::code::invalid_string, "Control character in string"));
                 if (c == '\\') {
                     if (s.eof()) return std::unexpected(s.make_error(ParseError::code::invalid_escape, "Unfinished escape sequence"));
@@ -229,7 +366,7 @@ namespace Sonnet {
             char c = s.peek();
             if (c == '-') {
                 s.get();
-                if (!std::isdigit(static_cast<unsigned char>(s.peek()))) return std::unexpected(s.make_error(ParseError::code::invalid_number, "Expected digit after '-'"));
+                if (!std::isdigit(static_cast<unsigned char>(s.peek()))) return std::unexpected(s.make_error(ParseError::code::unexpected_character, "Expected digit after '-'"));
             }
 
             char first_digit = s.get();
@@ -247,9 +384,18 @@ namespace Sonnet {
             if (p == 'e' || p == 'E') {
                 s.get();
                 char sign = s.peek();
-                if (sign == '+' || sign =='-') s.get();
+                if (sign == '+' || sign =='-') { 
+                    s.get();
+                    c = s.peek();
+                }
                 if (!std::isdigit(static_cast<unsigned char>(s.peek()))) return std::unexpected(s.make_error(ParseError::code::invalid_number, "Expected digit in exponent"));
-                while (std::isdigit(static_cast<unsigned char>(s.peek()))) s.get();
+                do {
+                    s.get();
+                    c = s.peek();
+                } while (std::isdigit(static_cast<unsigned char>(c)));
+
+                auto is_ws = [](char ch) { return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'; };
+                if (!(c == '\0' || c == ',' || c == ']' || c == '}' || is_ws(c))) return std::unexpected(s.make_error(ParseError::code::invalid_number, "Invalid character in exponent"));
             }
 
             size_t end = s.idx;
@@ -261,6 +407,8 @@ namespace Sonnet {
         }
 
         expected_t<value> parse_array(Scanner& s) {
+            DepthGuard guard{ s };
+            if (s.max_depth != 0 && !guard.ok()) return std::unexpected(s.make_error(ParseError::code::depth_limit_exceeded, "Maximum nesting depth exceeded"));
             if (!s.consume('[')) return std::unexpected(s.make_error(ParseError::code::unexpected_character, "Expected '[' to start array"));
 
             array arr{ Sonnet::allocator_type(s.mem_res) };
@@ -269,51 +417,67 @@ namespace Sonnet {
             if (s.consume(']')) return value{ std::move(arr), s.mem_res };
 
             while (true) {
-                if (auto elem = parse_value(s); !elem) return std::unexpected(elem.error());
-                else arr.emplace_back(std::move(*elem));
+                auto elem = parse_value(s);
+                if (!elem) return std::unexpected(std::move(elem.error()));
+                arr.emplace_back(std::move(*elem));
 
                 if (auto ws = skip_ws_and_comments(s); !ws) return std::unexpected(ws.error());
-                if (s.consume(',')) {
-                    if (auto ws = skip_ws_and_comments(s); !ws) return std::unexpected(ws.error());
 
-                    if (s.opts.allow_trailing_commas && s.peek() == ']') {
-                        s.get();
-                        break;
-                    } 
+                char c = s.peek();
+                if (c == ',') {
+                    s.get();
+                    if (auto ws = skip_ws_and_comments(s); !ws) return std::unexpected(ws.error());
+                    
+                    char next = s.peek();
+                    if (next == ']') {
+                        if (s.opts.allow_trailing_commas) {
+                            s.get();
+                            break;
+                        } else return std::unexpected(s.make_error(ParseError::code::trailing_characters, "Trailing commas not allowed"));
+                    }
                     continue;
-                } else if (s.consume(']')) break;
-                else return std::unexpected(s.make_error(ParseError::code::unexpected_character, "Expected ',' or ']' in array"));
+                }
+                if (c == ']') { s.get(); break; }
+                if (c == '\0') return std::unexpected(s.make_error(ParseError::code::unexpected_end_of_input, "Unterminated array, expected ',' or ']'"));
+                return std::unexpected(s.make_error(ParseError::code::unexpected_character, "Expected ',' or ']' in array"));
             }
             return value{ std::move(arr), s.mem_res };
         }
 
         expected_t<value> parse_object(Scanner& s) {
+            DepthGuard guard{ s };
+            if (s.max_depth != 0 && !guard.ok()) return std::unexpected(s.make_error(ParseError::code::depth_limit_exceeded, "Maximum nesting depth exceeded"));
             if (!s.consume('{')) return std::unexpected(s.make_error(ParseError::code::unexpected_character, "Expected '{' to start object"));
-            object obj{ std::less<>{}, s.mem_res };
+            object obj{ std::less<>{}, Sonnet::allocator_type(s.mem_res) };
             if (auto ws = skip_ws_and_comments(s); !ws) return std::unexpected(ws.error());
             if (s.consume('}')) return value{ std::move(obj), s.mem_res };
-
             while (true) {
-                if (s.peek() != '"') return std::unexpected(s.make_error(ParseError::code::invalid_string, "Expected string key in object"));
-                auto key_result = parse_string(s);
-                if (!key_result) return std::unexpected(key_result.error());
-                string key = std::move(*key_result);
+                char c = s.peek();
+                if (c == '\0') return std::unexpected(s.make_error(ParseError::code::unexpected_end_of_input, "Unterminted object, expected '}' or string key"));
+                if (c != '"') return std::unexpected(s.make_error(ParseError::code::unexpected_character, "Expected \" to start object key"));
+                auto key_val = parse_string(s);
+                if (!key_val) return std::unexpected(key_val.error());
+                string key = std::move(*key_val);
                 if (auto ws = skip_ws_and_comments(s); !ws) return std::unexpected(ws.error());
-                if (!s.consume(':')) return std::unexpected(s.make_error(ParseError::code::unexpected_character, "Expected ':' after object key"));
+                c = s.peek();
+                if (c == '\0') return std::unexpected(s.make_error(ParseError::code::unexpected_end_of_input, "Unterminated object, expected ':' after key"));
+                if (c != ':') return std::unexpected(s.make_error(ParseError::code::unexpected_character, "Expected ':' after object key"));
+                s.get();
                 if (auto ws = skip_ws_and_comments(s); !ws) return std::unexpected(ws.error());
-                auto val_result = parse_value(s);
-                if (!val_result) return std::unexpected(val_result.error());
-                obj.emplace(std::move(key), std::move(*val_result));
+                auto val = parse_value(s);
+                if (!val) return std::unexpected(val.error());
+                obj[std::move(key)] = std::move(*val); // Enforce last-wins here
                 if (auto ws = skip_ws_and_comments(s); !ws) return std::unexpected(ws.error());
-                if (s.consume(',')) {
+                c = s.peek();
+                if (c == ',') {
+                    s.get();
                     if (auto ws = skip_ws_and_comments(s); !ws) return std::unexpected(ws.error());
-                    if (s.opts.allow_trailing_commas && s.peek() == '}') {
-                        s.get();
-                        break;
-                    } 
+                    if (s.opts.allow_trailing_commas && s.peek() == '}') { s.get(); break; }
                     continue;
-                } else if (s.consume('}')) break;
-                else return std::unexpected(s.make_error(ParseError::code::unexpected_character, "Expected ',' or '}' in object"));
+                }
+                if (c == '}') { s.get(); break; }
+                if (c == '\0') return std::unexpected(s.make_error(ParseError::code::unexpected_end_of_input, "Unterminated object, expected ',' or '}'"));
+                return std::unexpected(s.make_error(ParseError::code::unexpected_character, "Expected ',' or '}' in object"));
             }
             return value{ std::move(obj), s.mem_res };
         }
@@ -348,6 +512,7 @@ namespace Sonnet {
                     if (!num) return std::unexpected(num.error());
                     return value{ *num, s.mem_res };
                 }
+                else if (c == '.') return std::unexpected(s.make_error(ParseError::code::invalid_number, "Fractional values must start with a 0"));
                 return std::unexpected(s.make_error(ParseError::code::unexpected_character, "Unexpected character while parsing value"));
             }
         }

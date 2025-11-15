@@ -93,6 +93,7 @@
 #include "sonnet/value.hpp"
 #include "sonnet/error.hpp"
 #include "sonnet/options.hpp"
+#include "sonnet/config.hpp"
 
 namespace Sonnet {
 
@@ -136,7 +137,7 @@ namespace Sonnet {
     /// @param input UTF-8 encoded JSON text to parse
     /// @param opts Parsing configuration options (comments, trailing commas, etc.)
     /// @return A `ParseResult` containing either a DOM tree or a parse error
-    [[nodiscard]] ParseResult parse(std::string_view input, const ParseOptions& opts = {});
+    [[nodiscard]] SONNET_API ParseResult parse(std::string_view input, const ParseOptions& opts = {});
 
     /// @ingroup SonnetAPI
     /// @brief Parses a JSON document from an input stream
@@ -158,7 +159,7 @@ namespace Sonnet {
     /// @param is Input stream containing UTF-8 JSON text
     /// @param opts Parsing configuration options (comments, trailing commas, etc.)
     /// @return A `ParseResult` containing either a DOM tree or a parse error
-    [[nodiscard]] ParseResult parse(std::istream& is, const ParseOptions& opts = {});
+    [[nodiscard]] SONNET_API ParseResult parse(std::istream& is, const ParseOptions& opts = {});
 
     /// @ingroup SonnetAPI
     /// @brief Serializes a JSON DOM value to a string
@@ -181,7 +182,7 @@ namespace Sonnet {
     /// @param v The DOM value to serialize
     /// @param opts Formatting options
     /// @return A UTF-8 JSON string representation of @p `v`.
-    [[nodiscard]] std::string dump(const value& v, const WriteOptions& opts = {});
+    [[nodiscard]] SONNET_API std::string dump(const value& v, const WriteOptions& opts = {});
 
     /// @ingroup SonnetAPI
     /// @brief Serializes a JSON DOM value and writes it to an output stream
@@ -199,6 +200,6 @@ namespace Sonnet {
     /// @param v The DOM value to serialize 
     /// @param os Output stream to receive JSON text
     /// @param opts Formatting options 
-    void dump(const value& v, std::ostream& os, const WriteOptions& opts = {});
+    SONNET_API void dump(const value& v, std::ostream& os, const WriteOptions& opts = {});
 
 } // namespace Sonnet

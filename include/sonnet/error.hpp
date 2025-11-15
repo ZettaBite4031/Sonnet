@@ -63,6 +63,8 @@
 #include <string>
 #include <string_view>
 
+#include "sonnet/config.hpp"
+
 
 /// @defgroup SonnetError Parsing Errors
 /// @ingroup Sonnet
@@ -122,6 +124,9 @@ namespace Sonnet {
         /// - `trailing_characters`  
         ///     Successfully parsed a complete JSON value, but non-whitespace
         ///     characters remain afterward.
+        /// - `depth_limit_exceeded`
+        ///     Successfully parse a complete JSON value, but maximum nesting depth
+        ///     was reached. Off by default.
         enum class code : uint8_t {
             unexpected_character,   ///< Invalid or unexpected character.
             invalid_number,         ///< Malformed numeric literal.
@@ -130,6 +135,7 @@ namespace Sonnet {
             invalid_unicode_escape, ///< Invalid or malformed Unicode escape.
             unexpected_end_of_input,///< Input ended prematurely.
             trailing_characters,    ///< Extra characters after valid JSON.
+            depth_limit_exceeded,   ///< Maximum depth limit exceeded.
         };
 
         code errc{};       ///< The classification of the parsing error.
@@ -161,7 +167,7 @@ namespace Sonnet {
         /// @param col  Column number (1-based).
         /// @param m    Human-readable error message.
         /// @return A fully constructed `ParseError`.
-        static ParseError make(code c, size_t o, size_t l, size_t col, std::string_view m);
+        SONNET_API static ParseError make(code c, size_t o, size_t l, size_t col, std::string_view m);
     };
 
 } // namespace Sonnet

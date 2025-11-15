@@ -15,7 +15,7 @@
 
     - `bool allow_comments`:
         * When true, the parser accepts line (`// ...`) and block
-          (`/* ...* /`) comments in addition to standard JSON whitespace
+          (`/ * ... * /`) comments in addition to standard JSON whitespace
         * When false (defaults for strict JSON), encountering a comment
           results in a `comment_not_allowed` parse error
     - `bool allow_trailing_commas`:

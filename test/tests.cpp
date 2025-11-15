@@ -97,6 +97,21 @@ namespace {
         }
         return random_primitive(r);
     }
+
+    static Sonnet::ParseResult parse_str(std::string_view s, const Sonnet::ParseOptions& opts = {}) {
+        return Sonnet::parse(s, opts);
+    }
+
+    static void expect_ok(std::string_view s, const Sonnet::ParseOptions& opts = {}) {
+        auto r = parse_str(s, opts);
+        REQUIRE(r);
+    }
+
+    static void expect_fail(std::string_view s, Sonnet::ParseError::code code, const Sonnet::ParseOptions& opts = {}) {
+        auto r = parse_str(s, opts);
+        REQUIRE_FALSE(r);
+        REQUIRE(r.error().errc == code);
+    }
 }
 
 
@@ -182,7 +197,6 @@ TEST_CASE("Reject Leading Zeros") {
     
     auto r = parse("01");
     REQUIRE_FALSE(r.has_value());
-    auto code = r.error().errc;
     REQUIRE(r.error().errc == Sonnet::ParseError::code::invalid_number);
 }
 
@@ -196,10 +210,10 @@ TEST_CASE("Reject Trailing Characters") {
 
 TEST_CASE("Empty Array and Object Round-Trip") {
     Sonnet::value arr;
-    arr.as_array();
+    auto _ = arr.as_array();
 
     Sonnet::value obj;
-    obj.as_object();
+    auto _ = obj.as_object();
 
     auto r1 = Sonnet::parse(Sonnet::dump(arr));
     auto r2 = Sonnet::parse(Sonnet::dump(obj));
@@ -385,4 +399,228 @@ TEST_CASE("operator[] Index Grows and Fills With Null") {
     REQUIRE(arr.size() == 4);
     REQUIRE(arr[0].is_null());
     REQUIRE(arr[3].as_number() == Approx(42.0));
+}
+
+TEST_CASE("RFC8259 - Top-Level Single Value with Whitespace") {
+    expect_ok(" 42 ");
+    expect_ok("\n\n {\"a\":1}  \t");
+    expect_ok("[1, 2, 3]");
+    expect_ok("null");
+    expect_ok("\"string\"");
+}
+
+TEST_CASE("RFC8259 - Trailing Characters are Rejected") {
+    expect_fail("null true", Sonnet::ParseError::code::trailing_characters);
+    expect_fail("{\"a\":1} 0", Sonnet::ParseError::code::trailing_characters);
+    expect_fail("[] [ ]", Sonnet::ParseError::code::trailing_characters);
+}
+
+TEST_CASE("RFC8259 - Allowed Whitespace is Accepted") {
+    expect_ok(" \t\r\n null \t\n ");
+    expect_ok("\r\n  [ \n 1 , 2 \t ] \r");
+}
+
+TEST_CASE("RFC8259 - non-JSON Whitespace is Rejected") {
+    std::string s = "\xC2\xA0\x01";
+    auto r = parse_str(s);
+    REQUIRE_FALSE(r);
+}
+
+TEST_CASE("RFC8259 - Valid Numbers") {
+    for (auto s : {
+        "0",
+        "123",
+        "-0",
+        "-123",
+        "0.0",
+        "-0.1",
+        "10.5",
+        "1e10",
+        "1E10",
+        "1e+10",
+        "1e-10",
+        "-1E-10"
+    }) {
+        INFO("parsing: " << s);
+        auto r = parse_str(s);
+        REQUIRE(r);
+        REQUIRE(r->is_number());
+    }
+}
+
+TEST_CASE("RFC8259 - Invalid Numbers are Rejected") {
+    // Leading zeros
+    expect_fail("01",     Sonnet::ParseError::code::invalid_number);
+    expect_fail("-01",    Sonnet::ParseError::code::invalid_number);
+
+    // Trailing decimal point / no digits
+    expect_fail("1.",     Sonnet::ParseError::code::invalid_number);
+    expect_fail("1.e10",  Sonnet::ParseError::code::invalid_number);
+    expect_fail(".5",     Sonnet::ParseError::code::invalid_number);
+
+    // Malformed exponent
+    expect_fail("1e",     Sonnet::ParseError::code::invalid_number);
+    expect_fail("1e+",    Sonnet::ParseError::code::invalid_number);
+    expect_fail("1e-",    Sonnet::ParseError::code::invalid_number);
+    expect_fail("1e1.2",  Sonnet::ParseError::code::invalid_number);
+
+    // Leading plus not allowed
+    expect_fail("+1",     Sonnet::ParseError::code::unexpected_character);
+}
+
+TEST_CASE("RFC8259 - Valid String Escapes") {
+    expect_ok("\"simple\"");
+    expect_ok("\"quote: \\\"\"");
+    expect_ok("\"backslash: \\\\\"");
+    expect_ok("\"controls: \\b\\f\\n\\r\\t\"");
+    expect_ok("\"solidus: \\/\"");
+}
+
+TEST_CASE("RFC8259 - Control Characters Must be Escaped") {
+    std::string s = "\"Hello\nWorld\""; // raw LF inside
+    expect_fail(s, Sonnet::ParseError::code::invalid_string);
+
+    std::string s2 = "\"\x01\""; // raw control char
+    expect_fail(s2, Sonnet::ParseError::code::invalid_string);
+}
+
+TEST_CASE("RFC8259 - Valid Unicode Escapes") {
+    // Basic Latin
+    expect_ok("\"hello \\u0041\""); // A
+
+    // Surrogate pair (😀 = U+1F600 = \uD83D\uDE00)
+    expect_ok("\"emoji: \\uD83D\\uDE00\"");
+}
+
+TEST_CASE("RFC8259 - Invalid Unicode Escapes") {
+    // Not enough hex digits
+    expect_fail("\"\\u12\"", Sonnet::ParseError::code::invalid_unicode_escape);
+
+    // Non-hex chars
+    expect_fail("\"\\uZZZZ\"", Sonnet::ParseError::code::invalid_unicode_escape);
+
+    // Lone high surrogate
+    expect_fail("\"\\uD800\"", Sonnet::ParseError::code::invalid_unicode_escape);
+
+    // High surrogate not followed by low surrogate
+    expect_fail("\"\\uD800abc\"", Sonnet::ParseError::code::invalid_unicode_escape);
+}
+
+TEST_CASE("RFC8259 - Basic Arrays") {
+    expect_ok("[]");
+    expect_ok("[1, 2, 3]");
+    expect_ok("[true, false, null, \"x\", {\"a\":1}, [2]]");
+}
+
+TEST_CASE("RFC8259 - Invalid Arrays") {
+    expect_fail("[", Sonnet::ParseError::code::unexpected_end_of_input);
+    expect_fail("[1", Sonnet::ParseError::code::unexpected_end_of_input);
+    expect_fail("[1,", Sonnet::ParseError::code::unexpected_end_of_input);
+    expect_fail("[1 2]", Sonnet::ParseError::code::unexpected_character);
+    expect_fail("[,1]", Sonnet::ParseError::code::unexpected_character);
+}
+
+TEST_CASE("RFC8259 - Trailing Comma Behavior") {
+    Sonnet::ParseOptions strict{};
+    strict.allow_trailing_commas = false;
+    (void)strict; // default behavior
+
+    Sonnet::ParseOptions relaxed{};
+    relaxed.allow_trailing_commas = true;
+
+    // Disallowed in strict
+    expect_fail("[1,]", Sonnet::ParseError::code::trailing_characters /* or trailing_comma_not_allowed, depending on your design */);
+
+    // Allowed in relaxed
+    auto r = Sonnet::parse("[1,]", relaxed);
+    REQUIRE(r);
+    REQUIRE(r->is_array());
+    REQUIRE(r->as_array().size() == 1);
+}
+
+TEST_CASE("RFC8259 - Basic Objects") {
+    expect_ok("{}");
+    expect_ok("{\"a\":1}");
+    expect_ok("{\"a\":1,\"b\":2}");
+    expect_ok("{\"nested\":{\"x\":true},\"arr\":[1,2]}");
+}
+
+TEST_CASE("RFC8259 - Invalid Objects") {
+    expect_fail("{", Sonnet::ParseError::code::unexpected_end_of_input);
+    expect_fail("{\"a\":1", Sonnet::ParseError::code::unexpected_end_of_input);
+    expect_fail("{\"a\":1,", Sonnet::ParseError::code::unexpected_end_of_input);
+    expect_fail("{a:1}", Sonnet::ParseError::code::unexpected_character); // key must be string
+    expect_fail("{\"a\" 1}", Sonnet::ParseError::code::unexpected_character); // missing colon
+    expect_fail("{,\"a\":1}", Sonnet::ParseError::code::unexpected_character);
+}
+
+TEST_CASE("RFC8259 - Object Duplicate Names Last-Wins Semantics") {
+    auto r = parse_str("{\"a\":1,\"a\":2}");
+    REQUIRE(r);
+    auto& obj = r->as_object();
+    REQUIRE(obj.size() == 1);
+    REQUIRE(obj.at("a").as_number() == Approx(2.0));
+}
+
+TEST_CASE("RFC8259 - Valid UTF-8 in Strings") {
+    // Some multi-byte characters
+    expect_ok("\"caf\xC3\xA9\"");           // café
+    expect_ok("\"snowman: \xE2\x98\x83\""); // ☃
+
+}
+
+TEST_CASE("RFC8259 - Invalid UTF-8 is Rejected") {
+    // Overlong encoding of '/'
+    std::string s = "\"\xC0\xAF\"";
+    expect_fail(s, Sonnet::ParseError::code::invalid_string);
+    // errc might be invalid_string or invalid_unicode_escape or unexpected_character,
+    // depending on how you classify UTF-8 errors.
+}
+
+TEST_CASE("RFC8259 - NaN and Infinity tokens are rejected") {
+    expect_fail("NaN",      Sonnet::ParseError::code::unexpected_character);
+    expect_fail("Infinity", Sonnet::ParseError::code::unexpected_character);
+    expect_fail("-Infinity", Sonnet::ParseError::code::unexpected_character);
+}
+
+TEST_CASE("Empty Input is Rejected") {
+    expect_fail("", Sonnet::ParseError::code::unexpected_end_of_input);
+}
+
+TEST_CASE("Whitespace-only Input is Rejected") {
+    expect_fail("   \n\t  ", Sonnet::ParseError::code::unexpected_end_of_input);
+}
+
+TEST_CASE("Minus Zero (-0) Parses as Number") {
+    auto r = Sonnet::parse("-0");
+    REQUIRE(r);
+    REQUIRE(r->is_number());
+    REQUIRE(r->as_number() == Approx(0.0));
+}
+
+TEST_CASE("Leading Plus Sign is Rejected") {
+    expect_fail("+1", Sonnet::ParseError::code::unexpected_character);
+}
+
+TEST_CASE("Empty String Parses") {
+    auto r = Sonnet::parse("\"\"");
+    REQUIRE(r);
+    REQUIRE(r->is_string());
+    REQUIRE(r->as_string().empty());
+}
+
+TEST_CASE("String With Multiple Escape Kinds Parses") {
+    auto r = Sonnet::parse("\"line1\\nline2\\t\\\"q\\\"\\\\\"");
+    REQUIRE(r);
+    REQUIRE(r->is_string());
+}
+
+TEST_CASE("Max depth is enforced") {
+    Sonnet::ParseOptions opts{};
+    opts.max_depth = 3;
+
+    expect_ok("[[[]]]", opts);
+    expect_fail("[[[[]]]]", Sonnet::ParseError::code::depth_limit_exceeded, opts);
+    expect_ok("{ \"1\": { \"2\": {}}}", opts);
+    expect_fail("{ \"1\": { \"2\": { \"3\": {}}}}", Sonnet::ParseError::code::depth_limit_exceeded, opts);
 }

@@ -16,7 +16,7 @@ int main() {
 
     Sonnet::value v2;
     auto& arr = v2.as_array();
-    // arr.emplace_back(true);
+    arr.emplace_back(true);
     
     std::string s = Sonnet::dump(v2, {.pretty = true});
     std::println("\n\n{}", s);
