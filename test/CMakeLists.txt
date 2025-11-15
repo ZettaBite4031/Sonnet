@@ -1,7 +1,14 @@
 cmake_minimum_required(VERSION 3.20)
 
-# Assuming Catch2 is vendored or fetched some other way.
-# For example, using FetchContent, or add_subdirectory(external/catch2).
+include(FetchContent) 
+
+FetchContent_Declare(
+    Catch2
+    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+    GIT_TAG v3.11.0
+)
+
+FetchContent_MakeAvailable(Catch2)
 
 add_executable(sonnet_tests
     tests.cpp
