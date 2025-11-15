@@ -293,7 +293,7 @@ namespace Sonnet {
         expected_t<string> parse_string(Scanner& s) {
             if (!s.consume('"')) return std::unexpected(s.make_error(ParseError::code::invalid_string, "Expected '\"' to start a string"));
             
-            string out{ s.mem_res };
+            string out{ Sonnet::allocator_type(s.mem_res) };
 
             while (!s.eof()) {
                 char c = s.get();
