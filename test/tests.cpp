@@ -212,10 +212,10 @@ TEST_CASE("Reject Trailing Characters") {
 
 TEST_CASE("Empty Array and Object Round-Trip") {
     Sonnet::value arr;
-    auto _ = arr.as_array();
+    auto a = arr.as_array();
 
     Sonnet::value obj;
-    auto _ = obj.as_object();
+    auto o = obj.as_object();
 
     auto r1 = Sonnet::parse(Sonnet::dump(arr));
     auto r2 = Sonnet::parse(Sonnet::dump(obj));

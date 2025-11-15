@@ -209,7 +209,7 @@ namespace Sonnet {
         /// @param i Integer value to convert and store as a double
         /// @param res Memory resource used for nested allocations (if any)
         template<std::integral I>
-        SONNET_API explicit value(I i, std::pmr::memory_resource* res = std::pmr::get_default_resource()) noexcept
+        explicit value(I i, std::pmr::memory_resource* res = std::pmr::get_default_resource()) noexcept
             : m_MemRes{ res }, m_Storage{ static_cast<double>(i) } {}
         
         /// @ingroup SonnetValue
